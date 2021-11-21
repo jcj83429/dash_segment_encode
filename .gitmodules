@@ -1,0 +1,3 @@
+[submodule "ebml"]
+	path = ebml
+	url = https://github.com/jcj83429/python-ebml.git
