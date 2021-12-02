@@ -90,13 +90,15 @@ if($locked){
 		}
 		$newResolution = targetRes($videoAspectArr[0], $videoAspectArr[1]);
 		$vf = ' -vf "yadif=mode=0:deint=1,scale=' .$newResolution[0] . ':' . $newResolution[1] . ',drawtext=text=\'' . date("Y-m-d H-i-s") . '\':fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5":x=5:y=5 ';
-		
-		shell_exec('ffmpeg -ss ' . $start . ' -i ' . escapeshellarg($videofile) . $vf . ' -t 5 -an -sn -map_metadata -1 -c:v libvpx-vp9 -crf 25 -b:v 4M -cpu-used 8 -deadline realtime -row-mt 1 -tile-columns 2 -tile-rows 2 -frame-parallel 1 -aq-mode variance -tune-content film -g 1000 -keyint_min 1000 -dash 1 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . '_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . '.webm') . ' ' . escapeshellarg($basesegpath . '.mpd') . ' 2>&1');
+
+		// copyts, vsync and enc_time_base are needed to handle videos with fractional framerate or small errors in timestamps better and avoid dropping or duping frames on segment boundaries.
+		shell_exec('ffmpeg -ss ' . $start . ' -i ' . escapeshellarg($videofile) . $vf . ' -t ' . ($start + 5) . ' -copyts -vsync passthrough -enc_time_base -1 -an -sn -map_metadata -1 -c:v libvpx-vp9 -crf 25 -b:v 16M -cpu-used 8 -deadline realtime -row-mt 1 -tile-columns 2 -tile-rows 2 -frame-parallel 1 -aq-mode variance -tune-content film -g 1000 -keyint_min 1000 -dash 1 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . '_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . '.webm') . ' ' . escapeshellarg($basesegpath . '.mpd') . ' 2>&1');
 
 		// delete the ffmpeg-generated MPD
 		unlink($basesegpath . '.mpd');
-		// patch the timestamp
-		shell_exec('python patch_segment_timestamp.py ' . escapeshellarg($basesegpath . '.webm') . ' ' . escapeshellarg($basesegpath . '.webm') . ' ' . $start * 1000);
+
+		// no need to patch the timestamp. copyts generates segments with the correct timestamp.
+
 		// The init segment doesn't contain any timestamp or duration so it doesn't matter if we always overwrite it
 		rename($basesegpath . '_init.webm', $baseinitpath . '.webm');
 		

@@ -7,4 +7,6 @@ The general idea is to encode the webm segments then patch their timestamps to b
 
 For audio, the opus codec is a great fit because of its 960 sample frame size and fixed 48000Hz sample rate. This means there are exactly 50 opus frames per second, making the cut time calculations very simple. The audio segments are encoded with 0.5s of lead in and lead out. The lead in and lead out are then cut from the segments with direct stream copy. This ensures that the MDCT frames from different segments overlap correctly. The audio segments join perfectly with no glitches.
 
-For video, VP9 is used as it is much faster than AV1. x264 would be ideal because of its speed but it doesn't fit in webm. The segments are currently hardcoded to 5s. This doesn't work well with fractional frame rates like 23.976 (24000/1001) so there can be frame duplication or frame drops at segment boundaries. For these frame rates, using a segment length of 5.005 would probably fix the problem.
+For video, VP9 is used as it is much faster than any AV1 encoder. x264 would be ideal because of its speed but it doesn't fit in webm. When SVT-AV1 preset 12 comes out I will probably use it instead.
+
+The -copyts, -vsync passthrough and -enc_time_base -1 options are used to handle fractional framerates. With these options, the input frame times are preserved, and for fractional framerates, the first frame of a segment may begin a few milliseconds after the whole second. This seems to be ok in Firefox and Chromium.
