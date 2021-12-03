@@ -89,7 +89,7 @@ if($locked){
 			$audioCutStart = $start ? 0.5 : 0;
 			shell_exec('ffmpeg -ss ' . $audioEncStart . ' -i ' . escapeshellarg($videofile) . ' -t ' . $audioEncLen . ' -ac 2 ' . escapeshellarg($basesegpath . '.opus'));
 			// I don't know why but when I pass -t 5 the file comes out one frame (20ms) short.
-			shell_exec('ffmpeg -i ' . escapeshellarg($basesegpath . '.opus') . ' -ss ' . $audioCutStart . ' -t 5.02 -c copy -dash 1 -seg_duration 10 -frag_duration 10 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . '_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . '.webm') . ' ' . escapeshellarg($basesegpath . 'a.mpd'));
+			shell_exec('ffmpeg -i ' . escapeshellarg($basesegpath . '.opus') . ' -ss ' . $audioCutStart . ' -t 5.02 -c copy -dash 1 -seg_duration 10 -frag_duration 10 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . '_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . '.webm') . ' ' . escapeshellarg($basesegpath . '.mpd'));
 			unlink($basesegpath . '.opus');
 
 			// patch the timestamp
