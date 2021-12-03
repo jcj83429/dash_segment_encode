@@ -72,50 +72,50 @@ if (!file_exists(SEGMENT_CACHE)) {
 
 $start = intval($_GET["n"]) * 5;
 $videofile = $_GET["file"];
-$basesegname = md5($videofile) . '_ss' . $start;
+$basesegname = md5($videofile) . '_' . $_GET["type"] . '_ss' . $start;
 $basesegpath = SEGMENT_CACHE . '/' . $basesegname;
-$baseinitpath = SEGMENT_CACHE . '/' . md5($videofile) . '_init';
+$baseinitpath = SEGMENT_CACHE . '/' . md5($videofile) . '_' . $_GET["type"] . '_init';
 
 $lockfile = $basesegpath . '.lock';
 $lockfilefd = fopen($lockfile, 'a');
 $locked = flock($lockfilefd, LOCK_EX);
 if($locked){
 	if(!file_exists($basesegpath . '.webm')){
-		// ***** VIDEO *****
-		$videoAspectStr = shell_exec('mediainfo --Output="Video;%DisplayAspectRatio/String%" ' . escapeshellarg($videofile));
-		$videoAspectArr = explode(':', $videoAspectStr);
-		$videoAspectArr = explode(':', $videoAspectStr);
-		if(!array_key_exists(1,$videoAspectArr)){
-			$videoAspectArr[1] = "1";
-		}
-		$newResolution = targetRes($videoAspectArr[0], $videoAspectArr[1]);
-		$vf = ' -vf "yadif=mode=0:deint=1,scale=' .$newResolution[0] . ':' . $newResolution[1] . ',drawtext=text=\'' . date("Y-m-d H-i-s") . '\':fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5":x=5:y=5 ';
+		if($_GET["type"] == "video") {
+			// ***** VIDEO *****
+			$videoAspectStr = shell_exec('mediainfo --Output="Video;%DisplayAspectRatio/String%" ' . escapeshellarg($videofile));
+			$videoAspectArr = explode(':', $videoAspectStr);
+			$videoAspectArr = explode(':', $videoAspectStr);
+			if(!array_key_exists(1,$videoAspectArr)){
+				$videoAspectArr[1] = "1";
+			}
+			$newResolution = targetRes($videoAspectArr[0], $videoAspectArr[1]);
+			$vf = ' -vf "yadif=mode=0:deint=1,scale=' .$newResolution[0] . ':' . $newResolution[1] . ',drawtext=text=\'' . date("Y-m-d H-i-s") . '\':fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5":x=5:y=5 ';
 
-		// copyts, vsync and enc_time_base are needed to handle videos with fractional framerate or small errors in timestamps better and avoid dropping or duping frames on segment boundaries.
-		shell_exec('ffmpeg -ss ' . $start . ' -i ' . escapeshellarg($videofile) . $vf . ' -t ' . ($start + 5) . ' -copyts -vsync passthrough -enc_time_base -1 -an -sn -map_metadata -1 -c:v libvpx-vp9 -crf 25 -b:v 16M -cpu-used 8 -deadline realtime -row-mt 1 -tile-columns 2 -tile-rows 2 -frame-parallel 1 -aq-mode variance -tune-content film -g 1000 -keyint_min 1000 -dash 1 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . '_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . '.webm') . ' ' . escapeshellarg($basesegpath . '.mpd') . ' 2>&1');
+			// copyts, vsync and enc_time_base are needed to handle videos with fractional framerate or small errors in timestamps better and avoid dropping or duping frames on segment boundaries.
+			shell_exec('ffmpeg -ss ' . $start . ' -i ' . escapeshellarg($videofile) . $vf . ' -t ' . ($start + 5) . ' -copyts -vsync passthrough -enc_time_base -1 -an -sn -map_metadata -1 -c:v libvpx-vp9 -crf 25 -b:v 16M -cpu-used 8 -deadline realtime -row-mt 1 -tile-columns 2 -tile-rows 2 -frame-parallel 1 -aq-mode variance -tune-content film -g 1000 -keyint_min 1000 -dash 1 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . '_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . '.webm') . ' ' . escapeshellarg($basesegpath . '.mpd') . ' 2>&1');
+
+			// no need to patch the timestamp. copyts generates segments with the correct timestamp.
+		}else{
+			// ***** AUDIO *****
+			$audioEncStart = $start ? $start - 0.5 : 0;
+			$audioEncLen = $start ? 6 : 5.5;
+			$audioCutStart = $start ? 0.5 : 0;
+			shell_exec('ffmpeg -ss ' . $audioEncStart . ' -i ' . escapeshellarg($videofile) . ' -t ' . $audioEncLen . ' -ac 2 ' . escapeshellarg($basesegpath . '.opus'));
+			// I don't know why but when I pass -t 5 the file comes out one frame (20ms) short.
+			shell_exec('ffmpeg -i ' . escapeshellarg($basesegpath . '.opus') . ' -ss ' . $audioCutStart . ' -t 5.02 -c copy -dash 1 -seg_duration 10 -frag_duration 10 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . '_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . '.webm') . ' ' . escapeshellarg($basesegpath . 'a.mpd'));
+			unlink($basesegpath . '.opus');
+
+			// patch the timestamp
+			shell_exec('python patch_segment_timestamp.py ' . escapeshellarg($basesegpath . '.webm') . ' ' . escapeshellarg($basesegpath . '.webm') . ' ' . $start * 1000);
+		}
 
 		// delete the ffmpeg-generated MPD
 		unlink($basesegpath . '.mpd');
 
-		// no need to patch the timestamp. copyts generates segments with the correct timestamp.
-
 		// The init segment doesn't contain any timestamp or duration so it doesn't matter if we always overwrite it
 		rename($basesegpath . '_init.webm', $baseinitpath . '.webm');
-		
-		// ***** AUDIO *****
-		$audioEncStart = $start ? $start - 0.5 : 0;
-		$audioEncLen = $start ? 6 : 5.5;
-		$audioCutStart = $start ? 0.5 : 0;
-		shell_exec('ffmpeg -ss ' . $audioEncStart . ' -i ' . escapeshellarg($videofile) . ' -t ' . $audioEncLen . ' -ac 2 ' . escapeshellarg($basesegpath . '.opus'));
-		// I don't know why but when I pass -t 5 the file comes out one frame (20ms) short.
-		shell_exec('ffmpeg -i ' . escapeshellarg($basesegpath . '.opus') . ' -ss ' . $audioCutStart . ' -t 5.02 -c copy -dash 1 -seg_duration 10 -frag_duration 10 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . 'a_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . 'a.webm') . ' ' . escapeshellarg($basesegpath . 'a.mpd'));
-		unlink($basesegpath . '.opus');
-		// delete the ffmpeg-generated MPD
-		unlink($basesegpath . 'a.mpd');
-		// patch the timestamp
-		shell_exec('python patch_segment_timestamp.py ' . escapeshellarg($basesegpath . 'a.webm') . ' ' . escapeshellarg($basesegpath . 'a.webm') . ' ' . $start * 1000);
-		// The init segment doesn't contain any timestamp or duration so it doesn't matter if we always overwrite it
-		rename($basesegpath . 'a_init.webm', $baseinitpath . 'a.webm');
+
 	}
 	flock($lockfilefd, LOCK_UN);
 	fclose($lockfilefd);
@@ -131,20 +131,15 @@ header('Expires: '.gmdate('D, d M Y H:i:s \G\M\T', time() + 60)); //cache for 1 
 switch($_GET["type"]){
 case "video":
 	header('Content-type: video/webm');
-	if(isset($_GET["init"])){
-		serveRange($baseinitpath . '.webm');
-	}else{
-		serveRange($basesegpath . '.webm');
-	}
 	break;
 case "audio":
 	header('Content-type: audio/webm');
-	if(isset($_GET["init"])){
-		serveRange($baseinitpath . 'a.webm');
-	}else{
-		serveRange($basesegpath . 'a.webm');
-	}
 	break;
+}
+if(isset($_GET["init"])){
+	serveRange($baseinitpath . '.webm');
+}else{
+	serveRange($basesegpath . '.webm');
 }
 
 ?>
