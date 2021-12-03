@@ -2,24 +2,8 @@
 setlocale(LC_ALL, 'en_US.utf-8'); //for php
 putenv('LC_ALL=en_US.utf-8'); //for shell_exec
 
-const MAX_WIDTH = 960;
-const MAX_HEIGHT = 540;
-
 const SEGMENT_CACHE = '/tmp/dash_segments';
 const BUFFER_SIZE = 2097152;
-
-function targetRes($arX, $arY){
-	if($arX/$arY > MAX_WIDTH/MAX_HEIGHT){
-		$newWidth = MAX_WIDTH;
-		$newHeight = MAX_WIDTH * $arY / $arX;
-		$newHeight = $newHeight & 0xFFFE;
-	}else{
-		$newHeight = MAX_HEIGHT;
-		$newWidth = MAX_HEIGHT * $arX / $arY;
-		$newWidth = $newWidth & 0xFFFE;
-	}
-	return array($newWidth,$newHeight);
-}
 
 function serveRange($filepath){
 	$filesize = filesize($filepath);
@@ -64,7 +48,12 @@ if(isset($_GET["n"]) && (!is_numeric($_GET["n"]) || $_GET["n"] < 0)){
 	return;
 }
 
-
+if(($_GET["type"]) == "video"){
+	if(!isset($_GET["w"]) || !is_numeric($_GET["w"]) || $_GET["w"] < 100 ||
+	   !isset($_GET["h"]) || !is_numeric($_GET["h"]) || $_GET["h"] < 100){
+	header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
+	}
+}
 
 if (!file_exists(SEGMENT_CACHE)) {
     mkdir(SEGMENT_CACHE, 0777, true);
@@ -72,9 +61,13 @@ if (!file_exists(SEGMENT_CACHE)) {
 
 $start = intval($_GET["n"]) * 5;
 $videofile = $_GET["file"];
-$basesegname = md5($videofile) . '_' . $_GET["type"] . '_ss' . $start;
+$basename = md5($videofile) . '_' . $_GET["type"];
+if($_GET["type"] == "video"){
+	$basename = $basename . "_" . $_GET["w"] . 'x' . $_GET["h"];
+}
+$basesegname = $basename . '_ss' . $start;
 $basesegpath = SEGMENT_CACHE . '/' . $basesegname;
-$baseinitpath = SEGMENT_CACHE . '/' . md5($videofile) . '_' . $_GET["type"] . '_init';
+$baseinitpath = SEGMENT_CACHE . '/' . $basename . '_init';
 
 $lockfile = $basesegpath . '.lock';
 $lockfilefd = fopen($lockfile, 'a');
@@ -83,14 +76,7 @@ if($locked){
 	if(!file_exists($basesegpath . '.webm')){
 		if($_GET["type"] == "video") {
 			// ***** VIDEO *****
-			$videoAspectStr = shell_exec('mediainfo --Output="Video;%DisplayAspectRatio/String%" ' . escapeshellarg($videofile));
-			$videoAspectArr = explode(':', $videoAspectStr);
-			$videoAspectArr = explode(':', $videoAspectStr);
-			if(!array_key_exists(1,$videoAspectArr)){
-				$videoAspectArr[1] = "1";
-			}
-			$newResolution = targetRes($videoAspectArr[0], $videoAspectArr[1]);
-			$vf = ' -vf "yadif=mode=0:deint=1,scale=' .$newResolution[0] . ':' . $newResolution[1] . ',drawtext=text=\'' . date("Y-m-d H-i-s") . '\':fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5":x=5:y=5 ';
+			$vf = ' -vf "yadif=mode=0:deint=1,scale=' .$_GET["w"] . ':' . $_GET["h"] . ',drawtext=text=\'' . date("Y-m-d H-i-s") . '\':fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5":x=5:y=5 ';
 
 			// copyts, vsync and enc_time_base are needed to handle videos with fractional framerate or small errors in timestamps better and avoid dropping or duping frames on segment boundaries.
 			shell_exec('ffmpeg -ss ' . $start . ' -i ' . escapeshellarg($videofile) . $vf . ' -t ' . ($start + 5) . ' -copyts -vsync passthrough -enc_time_base -1 -an -sn -map_metadata -1 -c:v libvpx-vp9 -crf 25 -b:v 16M -cpu-used 8 -deadline realtime -row-mt 1 -tile-columns 2 -tile-rows 2 -frame-parallel 1 -aq-mode variance -tune-content film -g 1000 -keyint_min 1000 -dash 1 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . '_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . '.webm') . ' ' . escapeshellarg($basesegpath . '.mpd') . ' 2>&1');

@@ -2,8 +2,8 @@
 setlocale(LC_ALL, 'en_US.utf-8'); //for php
 putenv('LC_ALL=en_US.utf-8'); //for shell_exec
 
-const MAX_WIDTH = 960;
-const MAX_HEIGHT = 540;
+const MAX_WIDTH = 1280;
+const MAX_HEIGHT = 720;
 
 function targetRes($arX, $arY){
 	if($arX/$arY > MAX_WIDTH/MAX_HEIGHT){
@@ -36,6 +36,8 @@ if(!array_key_exists(1,$videoAspectArr)){
 	$videoAspectArr[1] = "1";
 }
 $newResolution = targetRes(intval($videoAspectArr[0]), intval($videoAspectArr[1]));
+$w = $newResolution[0];
+$h = $newResolution[1];
 
 header('Content-type: application/dash+xml');
 if($_SERVER['REQUEST_METHOD'] == 'HEAD'){
@@ -45,9 +47,9 @@ echo '<?xml version="1.0"?>' . PHP_EOL;
 echo '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT1S" type="static" mediaPresentationDuration="'.formatTime($videoLength).'" profiles="urn:mpeg:dash:profile:full:2011">' . PHP_EOL;
 echo ' <Period id="0" start="PT0.0S">' . PHP_EOL;
 // VIDEO
-echo '  <AdaptationSet id="0" contentType="video" segmentAlignment="true" bitstreamSwitching="true" maxWidth="' . $newResolution[0] . '" maxHeight="' . $newResolution[1] . '">' . PHP_EOL;
-echo '   <Representation id="0" mimeType="video/webm" codecs="vp09.00.30.08" bandwidth="1000000" width="' . $newResolution[0] . '" height="' . $newResolution[1] . '">' . PHP_EOL;
-echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=video&amp;init=1" media="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=video&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
+echo '  <AdaptationSet id="0" contentType="video" segmentAlignment="true" bitstreamSwitching="true" maxWidth="' . $w . '" maxHeight="' . $h . '">' . PHP_EOL;
+echo '   <Representation id="0" mimeType="video/webm" codecs="vp09.00.30.08" bandwidth="1000000" width="' . $w . '" height="' . $h . '">' . PHP_EOL;
+echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=video&amp;w=' . $w . '&amp;h=' . $h . '&amp;init=1" media="getsegment.php?file=' . rawurlencode($videofile) . '&amp;w=' . $w . '&amp;h=' . $h . '&amp;type=video&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
 echo '   </Representation>' . PHP_EOL;
 echo '  </AdaptationSet>' . PHP_EOL;
 // AUDIO
