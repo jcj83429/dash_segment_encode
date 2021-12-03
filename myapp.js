@@ -17,6 +17,18 @@ async function init() {
   player.addEventListener('error', onPlayerErrorEvent);
   controls.addEventListener('error', onUIErrorEvent);
 
+  player.configure({
+    abr: {
+      // default to high quality
+      defaultBandwidthEstimate: 10000000,
+      // disable auto quality
+      enabled: false,
+    },
+    streaming: {
+      bufferingGoal: 9,
+    },
+  });
+
   // Try to load a manifest.
   // This is an asynchronous process.
   try {

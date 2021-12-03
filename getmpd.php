@@ -2,20 +2,38 @@
 setlocale(LC_ALL, 'en_US.utf-8'); //for php
 putenv('LC_ALL=en_US.utf-8'); //for shell_exec
 
-const MAX_WIDTH = 1280;
-const MAX_HEIGHT = 720;
-
-function targetRes($arX, $arY){
-	if($arX/$arY > MAX_WIDTH/MAX_HEIGHT){
-		$newWidth = MAX_WIDTH;
-		$newHeight = MAX_WIDTH * $arY / $arX;
-		$newHeight = $newHeight & 0xFFFE;
-	}else{
-		$newHeight = MAX_HEIGHT;
-		$newWidth = MAX_HEIGHT * $arX / $arY;
-		$newWidth = $newWidth & 0xFFFE;
+function calaculateResolutions($w, $h, $arX, $arY) {
+	$stdRes = array(array(320,240), array(640, 480), array(1280, 720));
+	$outRes = array();
+	// first adjust the w and h to make them square pixels
+	if($w/$h > $arX/$arY){
+		$h = $w * $arY / $arX;
+	}else if($w/$h < $arX/$arY){
+		$w = $h * $arX / $arY;
 	}
-	return array($newWidth,$newHeight);
+	foreach($stdRes as $res){
+		$outW = $w;
+		$outH = $h;
+		$lastRes = false;
+		if($w > $res[0] || $h > $res[1]){
+			if($arX/$arY > $res[0]/$res[1]){
+				$outW = $res[0];
+				$outH = $res[0] * $arY / $arX;
+			}else{
+				$outW = $res[1] * $arX / $arY;
+				$outH = $res[1];
+			}
+		}else{
+			$lastRes = true;
+		}
+		$outW = $outW & ~1;
+		$outH = $outH & ~1;
+		$outRes[] = array($outW, $outH);
+		if($lastRes){
+			break;
+		}
+	}
+	return $outRes;
 }
 
 function formatTime($timeSec){
@@ -30,14 +48,18 @@ if(!isset($_GET['file']) || !file_exists($_GET['file'])){
 $videofile = $_GET['file'];
 $videoLengthMs = shell_exec('mediainfo --Output="General;%Duration%" ' . escapeshellarg($videofile) . ' 2>&1');
 $videoLength = intval($videoLengthMs) / 1000;
-$videoAspectStr = shell_exec('mediainfo --Output="Video;%DisplayAspectRatio/String%" ' . escapeshellarg($videofile));
+$mediainfoOut = shell_exec('mediainfo --Output="Video;%Width%\n%Height%\n%DisplayAspectRatio/String%" ' . escapeshellarg($videofile));
+$mediainfoOut =  preg_split('/$\R?^/m', $mediainfoOut);
+$videoWidth = intval($mediainfoOut[0]);
+$videoHeight = intval($mediainfoOut[1]);
+$videoAspectStr = $mediainfoOut[2];
 $videoAspectArr = explode(':', $videoAspectStr);
 if(!array_key_exists(1,$videoAspectArr)){
 	$videoAspectArr[1] = "1";
 }
-$newResolution = targetRes(intval($videoAspectArr[0]), intval($videoAspectArr[1]));
-$w = $newResolution[0];
-$h = $newResolution[1];
+
+$resolutions = calaculateResolutions($videoWidth, $videoHeight, intval($videoAspectArr[0]), intval($videoAspectArr[1]));
+$maxRes = $resolutions[count($resolutions)-1];
 
 header('Content-type: application/dash+xml');
 if($_SERVER['REQUEST_METHOD'] == 'HEAD'){
@@ -47,10 +69,15 @@ echo '<?xml version="1.0"?>' . PHP_EOL;
 echo '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT1S" type="static" mediaPresentationDuration="'.formatTime($videoLength).'" profiles="urn:mpeg:dash:profile:full:2011">' . PHP_EOL;
 echo ' <Period id="0" start="PT0.0S">' . PHP_EOL;
 // VIDEO
-echo '  <AdaptationSet id="0" contentType="video" segmentAlignment="true" bitstreamSwitching="true" maxWidth="' . $w . '" maxHeight="' . $h . '">' . PHP_EOL;
-echo '   <Representation id="0" mimeType="video/webm" codecs="vp09.00.30.08" bandwidth="1000000" width="' . $w . '" height="' . $h . '">' . PHP_EOL;
-echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=video&amp;w=' . $w . '&amp;h=' . $h . '&amp;init=1" media="getsegment.php?file=' . rawurlencode($videofile) . '&amp;w=' . $w . '&amp;h=' . $h . '&amp;type=video&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
-echo '   </Representation>' . PHP_EOL;
+echo '  <AdaptationSet id="0" contentType="video" segmentAlignment="true" bitstreamSwitching="true" maxWidth="' . $maxRes[0] . '" maxHeight="' . $maxRes[1] . '">' . PHP_EOL;
+for($id = 0; $id < count($resolutions); $id++){
+	$bandwidth = 1000000 << $id; // put some bogus value
+	$w = $resolutions[$id][0];
+	$h = $resolutions[$id][1];
+	echo '   <Representation id="' . $id . '" mimeType="video/webm" codecs="vp09.00.30.08" bandwidth="' . $bandwidth . '" width="' . $w . '" height="' . $h . '">' . PHP_EOL;
+	echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=video&amp;w=' . $w . '&amp;h=' . $h . '&amp;init=1" media="getsegment.php?file=' . rawurlencode($videofile) . '&amp;w=' . $w . '&amp;h=' . $h . '&amp;type=video&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
+	echo '   </Representation>' . PHP_EOL;
+}
 echo '  </AdaptationSet>' . PHP_EOL;
 // AUDIO
 echo '  <AdaptationSet id="1" contentType="audio" segmentAlignment="true" bitstreamSwitching="true">' . PHP_EOL;
