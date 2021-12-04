@@ -6,10 +6,13 @@ function calaculateResolutions($w, $h, $arX, $arY) {
 	$stdRes = array(array(320,240), array(640, 480), array(1280, 720));
 	$outRes = array();
 	// first adjust the w and h to make them square pixels
-	if($w/$h > $arX/$arY){
-		$h = $w * $arY / $arX;
-	}else if($w/$h < $arX/$arY){
-		$w = $h * $arX / $arY;
+	// Tolerate up to 3% AR error
+	if(abs(($w*$arY)/($h*$arX) - 1) > 0.03){
+		if($w/$h > $arX/$arY){
+			$h = $w * $arY / $arX;
+		}else if($w/$h < $arX/$arY){
+			$w = $h * $arX / $arY;
+		}
 	}
 	foreach($stdRes as $res){
 		$outW = $w;
