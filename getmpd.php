@@ -3,7 +3,7 @@ setlocale(LC_ALL, 'en_US.utf-8'); //for php
 putenv('LC_ALL=en_US.utf-8'); //for shell_exec
 
 function calaculateResolutions($w, $h, $arX, $arY) {
-	$stdRes = array(array(432,240), array(640, 360), array(854, 480), array(1280, 720), array(1920, 1080));
+	$stdRes = array(array(216,120), array(432,240), array(640, 360), array(854, 480), array(1280, 720), array(1920, 1080));
 	$outRes = array();
 	// first adjust the w and h to make them square pixels
 	// Tolerate up to 3% AR error
@@ -74,7 +74,7 @@ echo ' <Period id="0" start="PT0.0S">' . PHP_EOL;
 // VIDEO
 echo '  <AdaptationSet id="0" contentType="video" segmentAlignment="true" bitstreamSwitching="true" maxWidth="' . $maxRes[0] . '" maxHeight="' . $maxRes[1] . '">' . PHP_EOL;
 for($id = 0; $id < count($resolutions); $id++){
-	$bandwidth = 1000000 << $id; // put some bogus value
+	$bandwidth = 500000 << $id; // put some bogus value
 	$w = $resolutions[$id][0];
 	$h = $resolutions[$id][1];
 	echo '   <Representation id="' . $id . '" mimeType="video/webm" codecs="vp09.00.30.08" bandwidth="' . $bandwidth . '" width="' . $w . '" height="' . $h . '">' . PHP_EOL;
@@ -83,12 +83,17 @@ for($id = 0; $id < count($resolutions); $id++){
 }
 echo '  </AdaptationSet>' . PHP_EOL;
 // AUDIO
-echo '  <AdaptationSet id="1" contentType="audio" segmentAlignment="true" bitstreamSwitching="true">' . PHP_EOL;
-echo '   <Representation id="1" mimeType="audio/webm" codecs="opus" bandwidth="100000" audioSamplingRate="48000">' . PHP_EOL;
-echo '    <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2" />' . PHP_EOL;
-echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=audio&amp;init=1" media="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=audio&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
-echo '   </Representation>' . PHP_EOL;
-echo '  </AdaptationSet>' . PHP_EOL;
+$audioBitrates = array(128000, 64000, 32000);
+for($id = 0; $id < count($audioBitrates); $id++){
+	$br = $audioBitrates[$id];
+	// id 0 is used by video so audio starts at id 1
+	echo '  <AdaptationSet id="' . (1 + $id) . '" contentType="audio" segmentAlignment="true" bitstreamSwitching="true" lang="stereo' . $br . '">' . PHP_EOL;
+	echo '   <Representation id="0" mimeType="audio/webm" codecs="opus" bandwidth="' . $br . '" audioSamplingRate="48000">' . PHP_EOL;
+	echo '    <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2" />' . PHP_EOL;
+	echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=audio&amp;br=' . $br . '&amp;init=1" media="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=audio&amp;br=' . $br . '&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
+	echo '   </Representation>' . PHP_EOL;
+	echo '  </AdaptationSet>' . PHP_EOL;
+}
 
 echo ' </Period>' . PHP_EOL;
 echo '</MPD>' . PHP_EOL;

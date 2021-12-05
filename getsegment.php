@@ -49,9 +49,15 @@ if(isset($_GET["n"]) && (!is_numeric($_GET["n"]) || $_GET["n"] < 0)){
 }
 
 if(($_GET["type"]) == "video"){
-	if(!isset($_GET["w"]) || !is_numeric($_GET["w"]) || $_GET["w"] < 100 ||
-	   !isset($_GET["h"]) || !is_numeric($_GET["h"]) || $_GET["h"] < 100){
-	header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
+	if(!isset($_GET["w"]) || !is_numeric($_GET["w"]) || $_GET["w"] < 16 ||
+	   !isset($_GET["h"]) || !is_numeric($_GET["h"]) || $_GET["h"] < 16){
+		header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
+		return;
+	}
+}else{
+	if(!isset($_GET["br"]) || !is_numeric($_GET["br"]) || $_GET["br"] < 10000 || $_GET["br"] > 500000){
+		header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
+		return;
 	}
 }
 
@@ -64,6 +70,8 @@ $videofile = $_GET["file"];
 $basename = md5($videofile) . '_' . $_GET["type"];
 if($_GET["type"] == "video"){
 	$basename = $basename . "_" . $_GET["w"] . 'x' . $_GET["h"];
+}else{
+	$basename = $basename . "_" . $_GET["br"];
 }
 $basesegname = $basename . '_ss' . $start;
 $basesegpath = SEGMENT_CACHE . '/' . $basesegname;
@@ -87,7 +95,7 @@ if($locked){
 			$audioEncStart = $start ? $start - 0.5 : 0;
 			$audioEncLen = $start ? 6 : 5.5;
 			$audioCutStart = $start ? 0.5 : 0;
-			shell_exec('ffmpeg -ss ' . $audioEncStart . ' -i ' . escapeshellarg($videofile) . ' -t ' . $audioEncLen . ' -ac 2 ' . escapeshellarg($basesegpath . '.opus'));
+			shell_exec('ffmpeg -ss ' . $audioEncStart . ' -i ' . escapeshellarg($videofile) . ' -t ' . $audioEncLen . ' -b:a ' . $_GET["br"] . ' -ac 2 ' . escapeshellarg($basesegpath . '.opus'));
 			// I don't know why but when I pass -t 5 the file comes out one frame (20ms) short.
 			shell_exec('ffmpeg -i ' . escapeshellarg($basesegpath . '.opus') . ' -ss ' . $audioCutStart . ' -t 5.02 -c copy -dash 1 -seg_duration 10 -frag_duration 10 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . '_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . '.webm') . ' ' . escapeshellarg($basesegpath . '.mpd'));
 			unlink($basesegpath . '.opus');
