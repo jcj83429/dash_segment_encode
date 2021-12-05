@@ -26,6 +26,7 @@ async function init() {
     },
     streaming: {
       bufferingGoal: 9,
+      jumpLargeGaps: true,
     },
   });
 
