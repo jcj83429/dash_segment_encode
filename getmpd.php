@@ -3,7 +3,7 @@ setlocale(LC_ALL, 'en_US.utf-8'); //for php
 putenv('LC_ALL=en_US.utf-8'); //for shell_exec
 
 function calaculateResolutions($w, $h, $arX, $arY) {
-	$stdRes = array(array(320,240), array(640, 480), array(1280, 720));
+	$stdRes = array(array(432,240), array(640, 360), array(854, 480), array(1280, 720), array(1920, 1080));
 	$outRes = array();
 	// first adjust the w and h to make them square pixels
 	// Tolerate up to 3% AR error
@@ -61,7 +61,7 @@ if(!array_key_exists(1,$videoAspectArr)){
 	$videoAspectArr[1] = "1";
 }
 
-$resolutions = calaculateResolutions($videoWidth, $videoHeight, intval($videoAspectArr[0]), intval($videoAspectArr[1]));
+$resolutions = calaculateResolutions($videoWidth, $videoHeight, floatval($videoAspectArr[0]), floatval($videoAspectArr[1]));
 $maxRes = $resolutions[count($resolutions)-1];
 
 header('Content-type: application/dash+xml');
