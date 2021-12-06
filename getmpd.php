@@ -43,12 +43,16 @@ function formatTime($timeSec){
 	return 'PT'.floor($timeSec / 3600).'H'.(floor($timeSec/60)%60).'M'.($timeSec%60).'S';
 }
 
-if(!isset($_GET['file']) || !file_exists($_GET['file'])){
+if(!isset($_GET['file'])){
+	header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
+	return;
+}
+$videofile=$_SERVER['DOCUMENT_ROOT'] . parse_url($_GET['file'])["path"];
+if(preg_match("/[\\/]\.\.[\\/]/", $videofile) || !is_file($videofile)){
 	header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
 	return;
 }
 
-$videofile = $_GET['file'];
 $videoLengthMs = shell_exec('mediainfo --Output="General;%Duration%" ' . escapeshellarg($videofile) . ' 2>&1');
 $videoLength = intval($videoLengthMs) / 1000;
 $mediainfoOut = shell_exec('mediainfo --Output="Video;%Width%\n%Height%\n%DisplayAspectRatio/String%" ' . escapeshellarg($videofile));
@@ -78,7 +82,7 @@ for($id = 0; $id < count($resolutions); $id++){
 	$w = $resolutions[$id][0];
 	$h = $resolutions[$id][1];
 	echo '   <Representation id="' . $id . '" mimeType="video/webm" codecs="vp09.00.30.08" bandwidth="' . $bandwidth . '" width="' . $w . '" height="' . $h . '">' . PHP_EOL;
-	echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=video&amp;w=' . $w . '&amp;h=' . $h . '&amp;init=1" media="getsegment.php?file=' . rawurlencode($videofile) . '&amp;w=' . $w . '&amp;h=' . $h . '&amp;type=video&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
+	echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($_GET['file']) . '&amp;type=video&amp;w=' . $w . '&amp;h=' . $h . '&amp;init=1" media="getsegment.php?file=' . rawurlencode($_GET['file']) . '&amp;w=' . $w . '&amp;h=' . $h . '&amp;type=video&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
 	echo '   </Representation>' . PHP_EOL;
 }
 echo '  </AdaptationSet>' . PHP_EOL;
@@ -90,7 +94,7 @@ for($id = 0; $id < count($audioBitrates); $id++){
 	echo '  <AdaptationSet id="' . (1 + $id) . '" contentType="audio" segmentAlignment="true" bitstreamSwitching="true" lang="stereo' . $br . '">' . PHP_EOL;
 	echo '   <Representation id="0" mimeType="audio/webm" codecs="opus" bandwidth="' . $br . '" audioSamplingRate="48000">' . PHP_EOL;
 	echo '    <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2" />' . PHP_EOL;
-	echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=audio&amp;br=' . $br . '&amp;init=1" media="getsegment.php?file=' . rawurlencode($videofile) . '&amp;type=audio&amp;br=' . $br . '&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
+	echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($_GET['file']) . '&amp;type=audio&amp;br=' . $br . '&amp;init=1" media="getsegment.php?file=' . rawurlencode($_GET['file']) . '&amp;type=audio&amp;br=' . $br . '&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
 	echo '   </Representation>' . PHP_EOL;
 	echo '  </AdaptationSet>' . PHP_EOL;
 }

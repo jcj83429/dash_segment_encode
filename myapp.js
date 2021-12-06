@@ -1,6 +1,10 @@
 // myapp.js
 
-const manifestUri = 'getmpd.php?file=/home/archuser/Videos/tyler.mp4';
+link = window.location.hash.slice(1);
+manifestUri = 'getmpd.php?file=' + link;
+if(!link){
+  alert("no file link specified");
+}
 
 async function init() {
   // When using the UI, the player is made automatically by the UI object.

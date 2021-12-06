@@ -28,10 +28,16 @@ function serveRange($filepath){
 	fclose($fp);
 }
 
-if(!isset($_GET['file']) || !file_exists($_GET['file'])){
+if(!isset($_GET['file'])){
 	header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
 	return;
 }
+$videofile=$_SERVER['DOCUMENT_ROOT'] . parse_url($_GET['file'])["path"];
+if(preg_match("/[\\/]\.\.[\\/]/", $videofile) || !is_file($videofile)){
+	header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
+	return;
+}
+
 
 if(!isset($_GET["type"]) || !in_array($_GET["type"], array("video", "audio"))){
 	header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
@@ -66,7 +72,6 @@ if (!file_exists(SEGMENT_CACHE)) {
 }
 
 $start = intval($_GET["n"]) * 5;
-$videofile = $_GET["file"];
 $basename = md5($videofile) . '_' . $_GET["type"];
 if($_GET["type"] == "video"){
 	$basename = $basename . "_" . $_GET["w"] . 'x' . $_GET["h"];
