@@ -98,7 +98,7 @@ if($_GET["type"] == "video") {
 			$audioEncStart = $start ? $start - 0.5 : 0;
 			$audioEncLen = $start ? 6 : 5.5;
 			$audioCutStart = $start ? 0.5 : 0;
-			shell_exec('ffmpeg -ss ' . $audioEncStart . ' -i ' . escapeshellarg($videofile) . ' -t ' . $audioEncLen . ' -b:a ' . $_GET["br"] . ' -ac 2 ' . escapeshellarg($basesegpath . '.opus') . ' 2>/dev/null');
+			shell_exec('ffmpeg -ss ' . $audioEncStart . ' -i ' . escapeshellarg($videofile) . ' -map 0:a:0 -t ' . $audioEncLen . ' -b:a ' . $_GET["br"] . ' -ac 2 ' . escapeshellarg($basesegpath . '.opus') . ' 2>/dev/null');
 
 			// I don't know why but when I pass -t 5 the file comes out one frame (20ms) short.
 			shell_exec('ffmpeg -i ' . escapeshellarg($basesegpath . '.opus') . ' -ss ' . $audioCutStart . ' -t 5.02 -c copy -output_ts_offset ' . $start . ' -dash 1 -seg_duration 10 -frag_duration 10 -dash_segment_type webm -init_seg_name ' . escapeshellarg($basesegname . '_init.webm') . ' -media_seg_name ' . escapeshellarg($basesegname . '.webm') . ' ' . escapeshellarg($basesegpath . '.mpd') . ' 2>/dev/null');
