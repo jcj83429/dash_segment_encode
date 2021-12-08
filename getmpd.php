@@ -55,7 +55,7 @@ if(preg_match("/[\\/]\.\.[\\/]/", $videofile) || !is_file($videofile)){
 
 $videoLengthMs = shell_exec('mediainfo --Output="General;%Duration%" ' . escapeshellarg($videofile) . ' 2>&1');
 $videoLength = intval($videoLengthMs) / 1000;
-$mediainfoOut = shell_exec('mediainfo --Output="Video;%Width%\n%Height%\n%DisplayAspectRatio/String%" ' . escapeshellarg($videofile));
+$mediainfoOut = shell_exec('mediainfo --Output="Video;%Width%\n%Height%\n%DisplayAspectRatio/String%\n" ' . escapeshellarg($videofile));
 $mediainfoOut =  preg_split('/$\R?^/m', $mediainfoOut);
 $videoWidth = intval($mediainfoOut[0]);
 $videoHeight = intval($mediainfoOut[1]);
