@@ -47,7 +47,15 @@ if(!isset($_GET['file'])){
 	header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
 	return;
 }
-$videofile=$_SERVER['DOCUMENT_ROOT'] . parse_url($_GET['file'])["path"];
+
+$urlParts = parse_url($_GET['file']);
+$videofile = $_SERVER['DOCUMENT_ROOT'] . $urlParts["path"];
+if(array_key_exists("query", $urlParts)){
+	$videofile = $videofile . '?' . $urlParts["query"];
+}
+if(array_key_exists("fragment", $urlParts)){
+	$videofile = $videofile . '#' . $urlParts["fragment"];
+}
 if(preg_match("/[\\/]\.\.[\\/]/", $videofile) || !is_file($videofile)){
 	header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
 	return;
