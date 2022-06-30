@@ -3,7 +3,7 @@ setlocale(LC_ALL, 'en_US.utf-8'); //for php
 putenv('LC_ALL=en_US.utf-8'); //for shell_exec
 
 function calaculateResolutions($w, $h, $arX, $arY) {
-	$stdRes = array(array(216,120), array(432,240), array(640, 360), array(854, 480), array(1280, 720), array(1920, 1080));
+	$stdRes = array(array(216,120), array(432,240), array(640, 360), array(854, 480), array(1280, 720), array(1920, 1080), array(2560, 1440));
 	$outRes = array();
 	// first adjust the w and h to make them square pixels
 	// Tolerate up to 3% AR error
@@ -70,6 +70,10 @@ $hasVideo = false;
 $hasAudio = false;
 foreach($ffprobeOutput["streams"] as $stream){
 	if($stream["codec_type"] == "video" && !$hasVideo){
+		if($stream["avg_frame_rate"] < 1){
+			// this is an album cover?
+			continue;
+		}
 		$hasVideo = true;
 		$videoWidth = intval($stream["width"]);
 		$videoHeight = intval($stream["height"]);
@@ -104,7 +108,7 @@ if($hasVideo){
 		$bandwidth = 500000 << $id; // put some bogus value
 		$w = $resolutions[$id][0];
 		$h = $resolutions[$id][1];
-		echo '   <Representation id="' . $id . '" mimeType="video/webm" codecs="vp09.00.30.08" bandwidth="' . $bandwidth . '" width="' . $w . '" height="' . $h . '">' . PHP_EOL;
+		echo '   <Representation id="' . $id . '" mimeType="video/webm" codecs="av01.0.08M.08" bandwidth="' . $bandwidth . '" width="' . $w . '" height="' . $h . '">' . PHP_EOL;
 		echo '    <SegmentTemplate duration="5" initialization="getsegment.php?file=' . rawurlencode($_GET['file']) . '&amp;type=video&amp;w=' . $w . '&amp;h=' . $h . '&amp;init=1" media="getsegment.php?file=' . rawurlencode($_GET['file']) . '&amp;w=' . $w . '&amp;h=' . $h . '&amp;type=video&amp;n=$Number%05d$" startNumber="0"/>' . PHP_EOL;
 		echo '   </Representation>' . PHP_EOL;
 	}
